@@ -6,6 +6,7 @@ use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\ServiceProvider;
 use Webrek\Outbox\Console\PruneCommand;
 use Webrek\Outbox\Console\RetryCommand;
+use Webrek\Outbox\Console\StatusCommand;
 use Webrek\Outbox\Console\WorkCommand;
 use Webrek\Outbox\Contracts\Publisher;
 use Webrek\Outbox\Publishers\EventPublisher;
@@ -52,6 +53,7 @@ class OutboxServiceProvider extends ServiceProvider
                 WorkCommand::class,
                 PruneCommand::class,
                 RetryCommand::class,
+                StatusCommand::class,
             ]);
         }
     }

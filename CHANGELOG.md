@@ -6,6 +6,16 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-06-16
+
+### Added
+
+- `Outbox::fake()` with `assertPublished()`, `assertNotPublished()`,
+  `assertPublishedTimes()` and `assertNothingPublished()`, so application tests
+  can assert staged messages without hitting the database or running the relay.
+- `outbox:status` command summarising message counts per state and the age of
+  the oldest pending message.
+
 ## [1.1.0] - 2026-06-16
 
 ### Added
@@ -34,6 +44,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `OutboxMessageDiscarded`.
 - Publishable config and migration; supports Laravel 12 and 13 on PHP 8.2+.
 
-[Unreleased]: https://github.com/webrek/laravel-outbox/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/webrek/laravel-outbox/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/webrek/laravel-outbox/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/webrek/laravel-outbox/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/webrek/laravel-outbox/releases/tag/v1.0.0

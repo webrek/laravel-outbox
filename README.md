@@ -156,6 +156,33 @@ php artisan outbox:retry <id> <id> …    # specific messages
 To spread the retries of a large backlog so they do not all fire at once, raise
 `retry.jitter` (0–1) before reprocessing.
 
+## Inspecting the outbox
+
+See how many messages sit in each state — and how stale the oldest pending one
+is — at a glance:
+
+```bash
+php artisan outbox:status
+```
+
+## Faking it in tests
+
+`Outbox::fake()` swaps the outbox for an in-memory recorder, so your application
+tests can assert what would be published without writing to the database or
+running the relay:
+
+```php
+use Webrek\Outbox\Facades\Outbox;
+
+Outbox::fake();
+
+$this->post('/orders', [...]);
+
+Outbox::assertPublished('order.placed', fn ($message) => $message->payload['id'] === $order->id);
+Outbox::assertPublishedTimes('order.placed', 1);
+Outbox::assertNothingPublished();   // or assert nothing leaked
+```
+
 ## Configuration
 
 ```php
