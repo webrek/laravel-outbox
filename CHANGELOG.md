@@ -6,6 +6,17 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-06-16
+
+### Added
+
+- `outbox:retry` command to reset discarded (`failed`) messages back to
+  `pending`, by id or `--all`, so they can be reprocessed after the downstream
+  is fixed.
+- Optional `retry.jitter` (0–1) that spreads retry delays at random, so a burst
+  of messages that failed together does not stampede the downstream when they
+  all become due at once.
+
 ## [1.0.0] - 2026-06-16
 
 ### Added
@@ -23,5 +34,6 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `OutboxMessageDiscarded`.
 - Publishable config and migration; supports Laravel 12 and 13 on PHP 8.2+.
 
-[Unreleased]: https://github.com/webrek/laravel-outbox/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/webrek/laravel-outbox/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/webrek/laravel-outbox/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/webrek/laravel-outbox/releases/tag/v1.0.0

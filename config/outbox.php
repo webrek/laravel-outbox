@@ -58,7 +58,9 @@ return [
     |--------------------------------------------------------------------------
     |
     | Exponential: delay = base_seconds * multiplier^(attempt - 1), capped at
-    | max_seconds.
+    | max_seconds. `jitter` (0–1) adds up to that fraction of the delay at
+    | random so a burst of messages that failed together does not all retry at
+    | the same instant. Leave it at 0 to disable.
     |
     */
 
@@ -66,6 +68,7 @@ return [
         'base_seconds' => 10,
         'max_seconds' => 3600,
         'multiplier' => 2,
+        'jitter' => 0.0,
     ],
 
     /*

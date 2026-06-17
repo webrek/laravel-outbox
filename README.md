@@ -141,6 +141,21 @@ The relay fires lifecycle events you can hook into for metrics and alerting:
 
 Each carries the `OutboxMessage`; the failure events also carry the `Throwable`.
 
+## Recovering discarded messages
+
+A message that exhausts its retry budget is marked `failed` and left in the
+table for inspection — never silently dropped. Once you have fixed the
+downstream, reset messages back to `pending` so the relay tries them again with
+a fresh budget:
+
+```bash
+php artisan outbox:retry --all          # every discarded message
+php artisan outbox:retry <id> <id> …    # specific messages
+```
+
+To spread the retries of a large backlog so they do not all fire at once, raise
+`retry.jitter` (0–1) before reprocessing.
+
 ## Configuration
 
 ```php
@@ -155,6 +170,7 @@ return [
         'base_seconds' => 10,                     // delay = base * multiplier^(attempt - 1)
         'max_seconds' => 3600,
         'multiplier' => 2,
+        'jitter' => 0.0,                          // 0–1: spread retries to avoid a thundering herd
     ],
     'prune' => [
         'retention_hours' => 168,

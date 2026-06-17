@@ -71,4 +71,31 @@ class BackoffTest extends TestCase
         $this->assertSame(60, $backoff->secondsFor(2));
         $this->assertSame(100, $backoff->secondsFor(3));
     }
+
+    public function test_jitter_stays_within_bounds_and_varies(): void
+    {
+        $backoff = new Backoff(base: 100, max: 100000, multiplier: 2.0, jitter: 0.5);
+
+        $results = [];
+        for ($i = 0; $i < 50; $i++) {
+            $results[] = $backoff->secondsFor(1);
+        }
+
+        foreach ($results as $value) {
+            $this->assertGreaterThanOrEqual(100, $value);   // never below the base delay
+            $this->assertLessThanOrEqual(150, $value);       // base + up to 50%
+        }
+
+        // Jitter actually moved the values around rather than returning a constant.
+        $this->assertGreaterThan(1, count(array_unique($results)));
+    }
+
+    public function test_jitter_never_exceeds_the_ceiling(): void
+    {
+        $backoff = new Backoff(base: 1000, max: 1000, multiplier: 2.0, jitter: 1.0);
+
+        for ($i = 0; $i < 25; $i++) {
+            $this->assertSame(1000, $backoff->secondsFor(1));
+        }
+    }
 }
