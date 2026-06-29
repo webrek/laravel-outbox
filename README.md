@@ -6,25 +6,26 @@
 [![PHP Version](https://img.shields.io/packagist/php-v/webrek/laravel-outbox.svg?style=flat-square)](https://php.net)
 [![License](https://img.shields.io/packagist/l/webrek/laravel-outbox.svg?style=flat-square)](LICENSE)
 
-A transactional outbox for Laravel. Stage a message **inside the same database
-transaction** as your business write, and a relay delivers it afterwards with
-retries and backoff. The write and the message commit together — either both
-land or neither does — so you never publish an event for a change that rolled
-back, and you never lose an event for a change that committed.
+Un *transactional outbox* para Laravel. Coloca un mensaje **dentro de la misma
+transacción de base de datos** que tu escritura de negocio, y un *relay* lo
+entrega después con reintentos y *backoff*. La escritura y el mensaje hacen
+*commit* juntos —o aterrizan ambos o ninguno— de modo que nunca publicas un
+evento de un cambio que se revirtió, ni pierdes un evento de un cambio que sí se
+confirmó.
 
-This is the producer half of *exactly-once*. Pair it with
-[webrek/laravel-idempotency](https://github.com/webrek/laravel-idempotency) on
-the consumer to get end-to-end exactly-once effects over at-least-once
-infrastructure.
+Esta es la mitad productora del *exactly-once*. Combínalo con
+[webrek/laravel-idempotency](https://github.com/webrek/laravel-idempotency) en
+el consumidor para obtener efectos *exactly-once* de extremo a extremo sobre una
+infraestructura *at-least-once*.
 
-## Why
+## Por qué
 
-Dispatching a queued job, firing a webhook, or publishing to a broker *after*
-saving a model is a dual-write: if the process dies between the commit and the
-dispatch, the side effect is lost. Doing it *before* the commit is worse — the
-effect fires even if the transaction rolls back. The outbox pattern removes the
-gap by writing the intent to the same database, in the same transaction, and
-delivering it from there.
+Despachar un *job* en cola, disparar un *webhook* o publicar en un *broker*
+*después* de guardar un modelo es un *dual write*: si el proceso muere entre el
+*commit* y el despacho, el efecto secundario se pierde. Hacerlo *antes* del
+*commit* es peor: el efecto se dispara incluso si la transacción se revierte. El
+patrón *outbox* elimina esa brecha escribiendo la intención en la misma base de
+datos, dentro de la misma transacción, y entregándola desde ahí.
 
 ```php
 use Illuminate\Support\Facades\DB;
@@ -33,67 +34,69 @@ use Webrek\Outbox\Facades\Outbox;
 DB::transaction(function () use ($request) {
     $order = Order::create($request->validated());
 
-    // Commits atomically with the order. No order, no message — and vice versa.
+    // Hace commit atómicamente con la orden. Sin orden, no hay mensaje — y viceversa.
     Outbox::publish('order.placed', ['order_id' => $order->id]);
 });
 ```
 
-## Install
+## Instalación
 
 ```bash
 composer require webrek/laravel-outbox
 ```
 
-Publish and run the migration:
+Publica y ejecuta la migración:
 
 ```bash
 php artisan vendor:publish --tag=outbox-migrations
 php artisan migrate
 ```
 
-Optionally publish the config:
+Opcionalmente publica la configuración:
 
 ```bash
 php artisan vendor:publish --tag=outbox-config
 ```
 
-> The outbox table must live on the **same connection** as the data you stage
-> messages alongside — atomicity only spans a single connection's transaction.
-> Set `outbox.connection` accordingly (it defaults to your default connection).
+> La tabla del *outbox* debe vivir en la **misma conexión** que los datos junto a
+> los que colocas los mensajes —la atomicidad solo abarca la transacción de una
+> sola conexión. Configura `outbox.connection` en consecuencia (por defecto usa
+> tu conexión predeterminada).
 
-## Relaying messages
+## Entrega de mensajes mediante el relay
 
-Run the relay as a long-lived worker (like `queue:work`):
+Ejecuta el *relay* como un *worker* de larga duración (como `queue:work`):
 
 ```bash
 php artisan outbox:work
 ```
 
-It claims due messages with a row lock — safe to run several workers in
-parallel — hands each to a **publisher**, and marks it published. A failed
-delivery is retried with exponential backoff up to `max_attempts`, after which
-the message is discarded. A message left `processing` by a crashed worker is
-reclaimed once `claim_timeout` passes.
+Reclama los mensajes vencidos con un *row lock* —es seguro correr varios
+*workers* en paralelo—, entrega cada uno a un **publisher** y lo marca como
+publicado. Una entrega fallida se reintenta con *backoff* exponencial hasta
+`max_attempts`, tras lo cual el mensaje se descarta. Un mensaje que quedó en
+`processing` por un *worker* que se cayó se reclama una vez que pasa
+`claim_timeout`.
 
-Process a single batch and exit (handy for scheduling or tests):
+Procesa un solo lote y termina (útil para tareas programadas o pruebas):
 
 ```bash
 php artisan outbox:work --once
 ```
 
-Trim delivered messages on a schedule:
+Recorta los mensajes ya entregados de forma programada:
 
 ```php
 use Illuminate\Support\Facades\Schedule;
 
-Schedule::command('outbox:prune')->daily();   // keeps the last `prune.retention_hours`
+Schedule::command('outbox:prune')->daily();   // conserva las últimas `prune.retention_hours`
 ```
 
-## Delivering messages
+## Entrega de mensajes al exterior
 
-How a message reaches the outside world is up to a **publisher**. Out of the box
-the package ships `EventPublisher`, which turns every message into an
-`OutboxMessageReady` event you can listen for:
+Cómo llega un mensaje al mundo exterior depende de un **publisher**. De fábrica
+el paquete incluye `EventPublisher`, que convierte cada mensaje en un evento
+`OutboxMessageReady` que puedes escuchar:
 
 ```php
 use Webrek\Outbox\Events\OutboxMessageReady;
@@ -105,10 +108,11 @@ Event::listen(OutboxMessageReady::class, function (OutboxMessageReady $event) {
 });
 ```
 
-Delivery is synchronous: if the listener throws, the message is rescheduled; if
-it returns, the message is marked published.
+La entrega es síncrona: si el *listener* lanza una excepción, el mensaje se
+reprograma; si retorna, el mensaje se marca como publicado.
 
-Prefer a dedicated class? Implement the contract and point the config at it:
+¿Prefieres una clase dedicada? Implementa el contrato y apunta la configuración
+hacia ella:
 
 ```php
 use Webrek\Outbox\Contracts\Publisher;
@@ -118,8 +122,8 @@ class BrokerPublisher implements Publisher
 {
     public function publish(OutboxMessage $message): void
     {
-        // push to Kafka / RabbitMQ / SNS / an HTTP endpoint…
-        // throw to retry, return to acknowledge.
+        // empuja a Kafka / RabbitMQ / SNS / un endpoint HTTP…
+        // lanza una excepción para reintentar, retorna para confirmar.
     }
 }
 ```
@@ -129,47 +133,48 @@ class BrokerPublisher implements Publisher
 'publisher' => App\Outbox\BrokerPublisher::class,
 ```
 
-## Observability
+## Observabilidad
 
-The relay fires lifecycle events you can hook into for metrics and alerting:
+El *relay* dispara eventos de ciclo de vida a los que puedes engancharte para
+métricas y alertas:
 
-| Event | When |
+| Evento | Cuándo |
 | --- | --- |
-| `OutboxMessagePublished` | A message was delivered successfully. |
-| `OutboxMessageFailed` | An attempt failed; the message will be retried. |
-| `OutboxMessageDiscarded` | The retry budget was exhausted; the message is given up on. |
+| `OutboxMessagePublished` | Un mensaje se entregó correctamente. |
+| `OutboxMessageFailed` | Un intento falló; el mensaje se reintentará. |
+| `OutboxMessageDiscarded` | Se agotó el presupuesto de reintentos; se abandona el mensaje. |
 
-Each carries the `OutboxMessage`; the failure events also carry the `Throwable`.
+Cada uno lleva el `OutboxMessage`; los eventos de falla también llevan el `Throwable`.
 
-## Recovering discarded messages
+## Recuperación de mensajes descartados
 
-A message that exhausts its retry budget is marked `failed` and left in the
-table for inspection — never silently dropped. Once you have fixed the
-downstream, reset messages back to `pending` so the relay tries them again with
-a fresh budget:
+Un mensaje que agota su presupuesto de reintentos se marca como `failed` y se
+deja en la tabla para inspección —nunca se descarta en silencio. Una vez que
+hayas corregido el sistema *downstream*, regresa los mensajes a `pending` para
+que el *relay* los intente de nuevo con un presupuesto fresco:
 
 ```bash
-php artisan outbox:retry --all          # every discarded message
-php artisan outbox:retry <id> <id> …    # specific messages
+php artisan outbox:retry --all          # todos los mensajes descartados
+php artisan outbox:retry <id> <id> …    # mensajes específicos
 ```
 
-To spread the retries of a large backlog so they do not all fire at once, raise
-`retry.jitter` (0–1) before reprocessing.
+Para distribuir los reintentos de un gran *backlog* y que no se disparen todos a
+la vez, sube `retry.jitter` (0–1) antes de reprocesar.
 
-## Inspecting the outbox
+## Inspección del outbox
 
-See how many messages sit in each state — and how stale the oldest pending one
-is — at a glance:
+Observa de un vistazo cuántos mensajes hay en cada estado —y qué tan rezagado
+está el más antiguo en `pending`:
 
 ```bash
 php artisan outbox:status
 ```
 
-## Faking it in tests
+## Simularlo en pruebas
 
-`Outbox::fake()` swaps the outbox for an in-memory recorder, so your application
-tests can assert what would be published without writing to the database or
-running the relay:
+`Outbox::fake()` intercambia el *outbox* por un registrador en memoria, de modo
+que las pruebas de tu aplicación pueden verificar qué se publicaría sin escribir
+en la base de datos ni ejecutar el *relay*:
 
 ```php
 use Webrek\Outbox\Facades\Outbox;
@@ -180,24 +185,24 @@ $this->post('/orders', [...]);
 
 Outbox::assertPublished('order.placed', fn ($message) => $message->payload['id'] === $order->id);
 Outbox::assertPublishedTimes('order.placed', 1);
-Outbox::assertNothingPublished();   // or assert nothing leaked
+Outbox::assertNothingPublished();   // o verifica que nada se haya filtrado
 ```
 
-## Configuration
+## Configuración
 
 ```php
 return [
-    'connection' => env('OUTBOX_CONNECTION'),   // same connection as your business data
+    'connection' => env('OUTBOX_CONNECTION'),   // misma conexión que tus datos de negocio
     'table' => 'outbox_messages',
     'publisher' => Webrek\Outbox\Publishers\EventPublisher::class,
-    'max_attempts' => 10,                        // attempts before discarding
-    'batch_size' => 100,                         // messages claimed per relay pass
-    'claim_timeout' => 300,                       // seconds before a stuck message is reclaimed
+    'max_attempts' => 10,                        // intentos antes de descartar
+    'batch_size' => 100,                         // mensajes reclamados por pasada del relay
+    'claim_timeout' => 300,                       // segundos antes de reclamar un mensaje atorado
     'retry' => [
         'base_seconds' => 10,                     // delay = base * multiplier^(attempt - 1)
         'max_seconds' => 3600,
         'multiplier' => 2,
-        'jitter' => 0.0,                          // 0–1: spread retries to avoid a thundering herd
+        'jitter' => 0.0,                          // 0–1: distribuye los reintentos para evitar un thundering herd
     ],
     'prune' => [
         'retention_hours' => 168,
@@ -205,30 +210,30 @@ return [
 ];
 ```
 
-## Requirements
+## Requisitos
 
-| Component | Version |
+| Componente | Versión |
 | --------- | ------- |
 | PHP | 8.2+ |
 | Laravel | 12.x / 13.x |
-| Database | Any with transactions (PostgreSQL, MySQL/MariaDB, SQLite, SQL Server) |
+| Base de datos | Cualquiera con transacciones (PostgreSQL, MySQL/MariaDB, SQLite, SQL Server) |
 
-## Testing
+## Pruebas
 
 ```bash
 composer install
 composer test
 ```
 
-## Contributing
+## Contribuir
 
-See [CONTRIBUTING.md](CONTRIBUTING.md).
+Consulta [CONTRIBUTING.md](CONTRIBUTING.md).
 
-## Security
+## Seguridad
 
-Please review the [security policy](SECURITY.md) before reporting a
-vulnerability.
+Revisa la [política de seguridad](SECURITY.md) antes de reportar una
+vulnerabilidad.
 
-## License
+## Licencia
 
-Released under the [MIT license](LICENSE).
+Publicado bajo la [licencia MIT](LICENSE).
